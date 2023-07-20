@@ -67,7 +67,7 @@ def get_query_with_recipes_and_recipes_limit(query, recipe_limit):
     subquery = Subquery(
         models.Recipe.objects.filter(
             author_id=OuterRef('author_id')
-        ).order_by('-id').values_list('id', flat=True)[:recipe_limit]
+        ).values_list('id', flat=True)[:recipe_limit]
     )
     query = query.prefetch_related(Prefetch(
         'recipes',

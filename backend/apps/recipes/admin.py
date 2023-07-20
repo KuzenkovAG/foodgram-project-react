@@ -8,6 +8,7 @@ from . import models
 class IngredientAdmin(admin.ModelAdmin):
     """Admin for Ingredients model."""
     list_display = ('id', 'name', 'measurement_unit')
+    list_filter = ('name',)
 
 
 @admin.register(models.Tag)

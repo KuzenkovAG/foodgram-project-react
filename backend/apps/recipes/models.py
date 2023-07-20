@@ -56,6 +56,9 @@ class Recipe(models.Model):
         related_name='in_recipes'
     )
 
+    class Meta:
+        ordering = ['-id']
+
     def __str__(self):
         return self.name
 
