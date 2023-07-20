@@ -76,6 +76,14 @@ class Favorite(models.Model):
         related_name='in_favorite'
     )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe'
+            )
+        ]
+
 
 class ShoppingCart(models.Model):
     """Cart with recipes for purchasing of user."""
@@ -89,6 +97,14 @@ class ShoppingCart(models.Model):
         on_delete=models.CASCADE,
         related_name='in_cart'
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe'
+            )
+        ]
 
 
 class Follow(models.Model):
@@ -105,3 +121,11 @@ class Follow(models.Model):
         related_name='follows',
         verbose_name='Подписчик',
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['author', 'follower'],
+                name='unique_author_follower'
+            )
+        ]
