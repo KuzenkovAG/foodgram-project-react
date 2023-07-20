@@ -28,7 +28,15 @@ cd infra/
 ```
 Запуск в контейнере Docker
 ```sh
-docker-compose up
+docker compose up
+```
+Применение миграций
+```sh
+docker compose exec backend python manage.py migrate
+```
+Добавление ингредиентов в базу
+```sh
+docker compose exec backend python manage.py add_ingredients
 ```
 Сервис станет доступен по адресу
 ```sh
