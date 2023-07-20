@@ -6,7 +6,14 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 KEY_WORDS = ['data:image/', ';base64,']
-REG_EX_BASE64 = r'data:image/[(png), (jpg)]+;base64,.+'
+AVAILABLE_FORMATS = [
+    '(png)',
+    '(jpeg)',
+    '(jpg)'
+]
+REG_EX_BASE64 = (
+    r'data:image/[' + ', '.join(AVAILABLE_FORMATS) + ']+;base64,.+'
+)
 
 
 class Base64ImageField(serializers.ImageField):

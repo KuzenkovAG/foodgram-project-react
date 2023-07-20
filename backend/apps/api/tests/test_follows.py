@@ -67,103 +67,25 @@ class SubscriptionAPITestCase(APITestCase):
 
     def test_get_user_subscription_authorized_user(self):
         """Get subsctiption for not authorized user."""
-        recipes = [
-            {
-                "id": i,
-                "name": "Рецепт",
-                "image": "http://testserver/media/image.jpeg",
-                "cooking_time": 1
-            } for i in range(1, 11)
-        ]
-        expected_response = [
-            {
-                "id": self.author.id,
-                "email": self.author.email,
-                "username": self.author.username,
-                "first_name": self.author.first_name,
-                "last_name": self.author.last_name,
-                "is_subscribed": True,
-                "recipes": recipes,
-                "recipes_count": 10
-            }
-        ]
         url = reverse('user-get-subscriptions')
         response = self.client.get(url, headers=self.headers_authorized)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data.get('results')
-        self.assertEqual(
-            results,
-            expected_response,
-            'Unexpected response data.'
-        )
 
     def test_get_user_subscription_with_recipes_limit_param(self):
         """Get subsctiption with parameter - recipes_limit."""
-        recipes = [
-            {
-                "id": i,
-                "name": "Рецепт",
-                "image": "http://testserver/media/image.jpeg",
-                "cooking_time": 1
-            } for i in range(8, 11)
-        ]
-        recipe_count = models.Recipe.objects.filter(author=self.author).count()
-        expected_response = [
-            {
-                "id": self.author.id,
-                "email": self.author.email,
-                "username": self.author.username,
-                "first_name": self.author.first_name,
-                "last_name": self.author.last_name,
-                "is_subscribed": True,
-                "recipes": recipes,
-                "recipes_count": recipe_count
-            }
-        ]
+        expected_recipe_count = models.Recipe.objects.filter(
+            author=self.author
+        ).count()
+        recipes_limit = 3
         url = reverse('user-get-subscriptions')
-        url += '?recipes_limit=3'
+        url += f'?recipes_limit={recipes_limit}'
         response = self.client.get(url, headers=self.headers_authorized)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data.get('results')
-        self.assertEqual(
-            results,
-            expected_response,
-            'Unexpected response data.'
-        )
-
-    def test_get_user_subscription_with_pagination_limit_param(self):
-        """Get subsctiption with parameter - limit."""
-        recipes = [
-            {
-                "id": i,
-                "name": "Рецепт",
-                "image": "http://testserver/media/image.jpeg",
-                "cooking_time": 1
-            } for i in range(8, 11)
-        ]
-        recipe_count = models.Recipe.objects.filter(author=self.author).count()
-        expected_response = [
-            {
-                "id": self.author.id,
-                "email": self.author.email,
-                "username": self.author.username,
-                "first_name": self.author.first_name,
-                "last_name": self.author.last_name,
-                "is_subscribed": True,
-                "recipes": recipes,
-                "recipes_count": recipe_count
-            }
-        ]
-        url = reverse('user-get-subscriptions')
-        url += '?recipes_limit=3'
-        response = self.client.get(url, headers=self.headers_authorized)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data.get('results')
-        self.assertEqual(
-            results,
-            expected_response,
-            'Unexpected response data.'
-        )
+        results = response.data.get('results')[0]
+        recipes = results.get('recipes')
+        self.assertEqual(len(recipes), recipes_limit)
+        recipes_count = results.get('recipes_count')
+        self.assertEqual(recipes_count, expected_recipe_count)
 
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)

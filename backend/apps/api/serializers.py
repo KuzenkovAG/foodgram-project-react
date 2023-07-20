@@ -4,9 +4,9 @@ from rest_framework import serializers
 from rest_framework.reverse import reverse
 from rest_framework.validators import ValidationError
 
+from ..recipes import models
 from . import fields
 from .utils import create_ingredients
-from ..recipes import models
 
 User = get_user_model()
 SUBSCRIPTION_ACTIONS = [
@@ -108,23 +108,26 @@ class IngredientSerializer(serializers.ModelSerializer):
 class RecipeIngredientSerializer(serializers.Serializer):
     """Serializer for ingredient."""
     id = serializers.IntegerField()
-    name = serializers.SerializerMethodField()
-    measurement_unit = serializers.SerializerMethodField()
+    name = serializers.CharField(read_only=True)
+    measurement_unit = serializers.CharField(read_only=True)
     amount = serializers.IntegerField()
 
     class Meta:
         fields = ('id', 'name', 'measurement_unit', 'amount')
 
-    def get_name(self, obj):
-        return obj.ingredient.name
-
-    def get_measurement_unit(self, obj):
-        return obj.ingredient.measurement_unit
-
     def validate_amount(self, amount):
         if int(amount) <= 0:
             raise ValidationError('Amount should be not 0.')
         return int(amount)
+
+    def to_representation(self, instance):
+        obj = {
+            'id': instance.ingredient_id,
+            'name': instance.ingredient.name,
+            'measurement_unit': instance.ingredient.measurement_unit,
+            'amount': instance.amount
+        }
+        return super().to_representation(obj)
 
 
 class RecipeSerializer(serializers.ModelSerializer):

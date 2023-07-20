@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Count, OuterRef, Prefetch, Subquery
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from rest_framework import status
 
 from ..recipes import models
 
@@ -79,3 +81,29 @@ def get_query_with_subscriptions(user, recipe_limit):
     query = User.objects.filter(followers__follower=user).order_by('-id')
     query = get_query_with_recipes_and_recipes_limit(query, recipe_limit)
     return query
+
+
+def _prepare_ingredients_to_print(ingredients):
+    """Prepare ingredients to print."""
+    data = []
+    for ingredient in ingredients:
+        name = ingredient.get('name')
+        units = ingredient.get('measurement_unit')
+        total = ingredient.get('total')
+        row = f'{name} {total}{units}\n'
+        data.append(row)
+    return ''.join(data)
+
+
+def get_response_with_attachment(ingredients):
+    """Prepare response with attachment."""
+    ingredients = _prepare_ingredients_to_print(ingredients)
+    response = HttpResponse(
+        ingredients,
+        content_type='text/plain; charset=UTF-8',
+        status=status.HTTP_200_OK
+    )
+    response['Content-Disposition'] = (
+        'attachment; filename=ingredients.txt'
+    )
+    return response

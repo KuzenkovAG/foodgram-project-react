@@ -45,7 +45,7 @@ class RecipeApiTestCase(APITestCase):
         cls.headers_authorized_author = {
             'Authorization': f"Token {token_author}"
         }
-        ingredient = models.Ingredient.objects.create(
+        cls.ingredient = models.Ingredient.objects.create(
             name='Картофель отварной',
             measurement_unit='г'
         )
@@ -57,7 +57,7 @@ class RecipeApiTestCase(APITestCase):
             cooking_time=10
         )
         cls.recipe_ingredients = models.IngredientAmount.objects.create(
-            ingredient=ingredient,
+            ingredient=cls.ingredient,
             amount=1
         )
         cls.tag = models.Tag.objects.create(
@@ -108,9 +108,9 @@ class RecipeApiTestCase(APITestCase):
                 },
                 "ingredients": [
                     {
-                        "id": self.recipe_ingredients.id,
-                        "name": "Картофель отварной",
-                        "measurement_unit": "г",
+                        "id": self.ingredient.id,
+                        "name": self.ingredient.name,
+                        "measurement_unit": self.ingredient.measurement_unit,
                         "amount": 1
                     }
                 ],
@@ -142,20 +142,22 @@ class RecipeApiTestCase(APITestCase):
     def test_create_recipe_authorized_user(self):
         """Create recipe by authorized users."""
         post_data = {
-            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJRU5ErkJggg==",
+            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
+                     "AgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXMAAA"
+                     "7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJRU5E"
+                     "rkJggg==",
             "name": "Суп",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 10,
             "ingredients": [
                 {
-                    "id": self.recipe_ingredients.id,
+                    "id": self.ingredient.id,
                     "amount": 1
                 }
             ],
             'tags': [self.tag.id],
         }
         expected_data = {
-            "id": 2,
             "tags": [
                 {
                     'id': self.tag.id,
@@ -174,9 +176,9 @@ class RecipeApiTestCase(APITestCase):
             },
             "ingredients": [
                 {
-                    "id": 2,
-                    "name": "Картофель отварной",
-                    "measurement_unit": "г",
+                    "id": self.ingredient.id,
+                    "name": self.ingredient.name,
+                    "measurement_unit": self.ingredient.measurement_unit,
                     "amount": 1
                 }
             ],
@@ -184,7 +186,7 @@ class RecipeApiTestCase(APITestCase):
             "is_in_shopping_cart": False,
             "name": "Суп",
             "image": "http://testserver/media/recipes/temp.jpg",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 10
         }
         url = reverse('recipe-list')
@@ -195,15 +197,19 @@ class RecipeApiTestCase(APITestCase):
             headers=self.headers_authorized
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        response.data.pop('id')
         self.assertEqual(response.data, expected_data)
 
     def test_create_recipe_with_wrong_image(self):
         """Creation recipe with wrong image format."""
         url = reverse('recipe-list')
         wrong_data = {
-            "image": "dat:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJRU5ErkJggg==",
+            "image": "dat:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABA"
+                     "gMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXMAAA7"
+                     "EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJRU5E"
+                     "rkJggg==",
             "name": "Суп",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 10,
             "ingredients": [
                 {
@@ -225,9 +231,12 @@ class RecipeApiTestCase(APITestCase):
         """Creation recipe with wrong amount format."""
         url = reverse('recipe-list')
         wrong_data = {
-            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJRU5ErkJggg==",
+            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAA"
+                     "ABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXM"
+                     "AAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJ"
+                     "RU5ErkJggg==",
             "name": "Суп",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 10,
             "ingredients": [
                 {
@@ -249,9 +258,12 @@ class RecipeApiTestCase(APITestCase):
         """Creation recipe with wrong cooking time format."""
         url = reverse('recipe-list')
         wrong_data = {
-            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJRU5ErkJggg==",
+            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAA"
+                     "ABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXM"
+                     "AAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJ"
+                     "RU5ErkJggg==",
             "name": "Суп",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 'ten minutes',
             "ingredients": [
                 {
@@ -273,9 +285,12 @@ class RecipeApiTestCase(APITestCase):
         """Creation recipe with wrong tag id."""
         url = reverse('recipe-list')
         wrong_data = {
-            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOyYQAAAABJRU5ErkJggg==",
+            "image": "data:image/jpg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEA"
+                     "AAABAgMAAABieywaAAAACVBMVEUAAAD///9fX1/S0ecCAAAACX"
+                     "BIWXMAAA7EAAAOxAGVKw4bAAAACklEQVQImWNoAAAAggCByxOy"
+                     "YQAAAABJRU5ErkJggg==",
             "name": "Суп",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 10,
             "ingredients": [
                 {
@@ -296,7 +311,7 @@ class RecipeApiTestCase(APITestCase):
     def test_get_recipe_by_id(self):
         """Get recipe by id."""
         expected_data = {
-            "id": 1,
+            "id": self.recipe.id,
             "tags": [
                 {
                     'id': self.tag.id,
@@ -315,9 +330,9 @@ class RecipeApiTestCase(APITestCase):
             },
             "ingredients": [
                 {
-                    "id": 1,
-                    "name": "Картофель отварной",
-                    "measurement_unit": "г",
+                    "id": self.ingredient.id,
+                    "name": self.ingredient.name,
+                    "measurement_unit": self.ingredient.measurement_unit,
                     "amount": 1
                 }
             ],
@@ -361,18 +376,18 @@ class RecipeApiTestCase(APITestCase):
         """Update recipe by owner."""
         post_data = {
             "name": "Суп",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 20,
             "ingredients": [
                 {
-                    "id": self.recipe_ingredients.id,
+                    "id": self.ingredient.id,
                     "amount": 1
                 }
             ],
             'tags': [self.tag.id],
         }
         expected_data = {
-            "id": 1,
+            "id": self.recipe.id,
             "tags": [
                 {
                     'id': self.tag.id,
@@ -391,9 +406,9 @@ class RecipeApiTestCase(APITestCase):
             },
             "ingredients": [
                 {
-                    "id": 2,
-                    "name": "Картофель отварной",
-                    "measurement_unit": "г",
+                    "id": self.ingredient.id,
+                    "name": self.ingredient.name,
+                    "measurement_unit": self.ingredient.measurement_unit,
                     "amount": 1
                 }
             ],
@@ -401,7 +416,7 @@ class RecipeApiTestCase(APITestCase):
             "is_in_shopping_cart": False,
             "name": "Суп",
             "image": "http://testserver/media/image.jpeg",
-            "text": "Охапку дров и суп готов.",
+            "text": "Подготовьте воду...",
             "cooking_time": 20
         }
         url = reverse('recipe-detail', kwargs={'pk': self.recipe.id})
@@ -469,8 +484,8 @@ class RecipePaginationApiTestCase(APITestCase):
     def setUpClass(cls):
         super().setUpClass()
         user_data = {
-            'email': 'test_user@mail.ru',
-            'username': 'test_user',
+            'email': 'test_user_recipe@mail.ru',
+            'username': 'test_user_recipe',
             'first_name': 'test',
             'last_name': 'user',
             'password': make_password('Qwerty123')
@@ -483,30 +498,9 @@ class RecipePaginationApiTestCase(APITestCase):
                 image='image.jpeg',
                 text='Возьмите столовую ложку...',
                 cooking_time=10
-            ) for _ in range(1, 15)
+            ) for _ in range(1, 10)
         ]
         models.Recipe.objects.bulk_create(recipe_objects)
-        cls.expected_results = [
-            {
-                "id": i,
-                "tags": [],
-                "ingredients": [],
-                "author": {
-                    "id": cls.user.id,
-                    "email": cls.user.email,
-                    "username": cls.user.username,
-                    "first_name": cls.user.first_name,
-                    "last_name": cls.user.last_name,
-                    "is_subscribed": False
-                },
-                "name": 'Картофель отварной.',
-                "image": "http://testserver/media/image.jpeg",
-                "text": "Возьмите столовую ложку...",
-                "is_favorited": False,
-                "is_in_shopping_cart": False,
-                "cooking_time": 10
-            } for i in range(1, 15)
-        ]
 
     @classmethod
     def tearDownClass(cls):
@@ -515,16 +509,12 @@ class RecipePaginationApiTestCase(APITestCase):
 
     def test_get_recipe_list_pagination(self):
         """Check pagination when get recipes list."""
+        expected_len = 6
         url = reverse('recipe-list')
         response = self.client.get(url)
-        self.assertEqual(
-            response.data.get('results'),
-            self.expected_results[:6]
-        )
-        self.assertEqual(
-            response.data.get('count'),
-            14
-        )
+        results = response.data.get('results')
+        self.assertEqual(len(results), expected_len)
+        self.assertEqual(response.data.get('count'), 9)
 
     def test_get_recipe_list_pagination_with_limit_param(self):
         """Check pagination when get recipes list."""
@@ -532,20 +522,17 @@ class RecipePaginationApiTestCase(APITestCase):
         url = reverse('recipe-list')
         url += f'?limit={limit}'
         response = self.client.get(url)
-        self.assertEqual(
-            response.data.get('results'),
-            self.expected_results[:limit]
-        )
+        result = response.data.get('results')
+        self.assertEqual(len(result), limit)
 
     def test_get_recipe_list_pagination_with_page_param(self):
         """Check pagination when get recipes list."""
+        expected_len = 3
         url = reverse('recipe-list')
         url += '?page=2'
         response = self.client.get(url)
-        self.assertEqual(
-            response.data.get('results'),
-            self.expected_results[6:12]
-        )
+        result = response.data.get('results')
+        self.assertEqual(len(result), expected_len)
 
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)

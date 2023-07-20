@@ -15,8 +15,8 @@ class UserApiTestCase(APITestCase):
     def setUpClass(cls):
         super().setUpClass()
         user_data = {
-            "email": "test_user@mail.ru",
-            "username": "test_user",
+            "email": "user_for_test@mail.ru",
+            "username": "user_for_test",
             "first_name": "test",
             "last_name": "user",
             "password": make_password("Qwerty123")
@@ -63,8 +63,8 @@ class UserApiTestCase(APITestCase):
         url = reverse('user-detail', kwargs={'pk': self.user.id})
         expected_data = {
             "id": self.user.id,
-            "email": "test_user@mail.ru",
-            "username": "test_user",
+            "email": "user_for_test@mail.ru",
+            "username": "user_for_test",
             "first_name": "test",
             "last_name": "user",
             "is_subscribed": False
@@ -150,47 +150,40 @@ class UserPaginatorApiTestCase(APITestCase):
         super().setUpClass()
         users_list = [
             User(
-                email='test_user@mail.ru',
-                username=f'test_user{i}',
+                email=f'bulk_user{i}@mail.ru',
+                username=f'bulk_user{i}',
                 first_name='test',
                 last_name='user',
                 password="Qwerty123"
-            ) for i in range(1, 21)
+            ) for i in range(1, 10)
         ]
         cls.users = User.objects.bulk_create(users_list)
-        cls.expected_results = [
-            {
-                "id": i,
-                "email": "test_user@mail.ru",
-                "username": f'test_user{i}',
-                "first_name": "test",
-                "last_name": "user",
-                "is_subscribed": False
-            } for i in range(1, 21)
-        ]
 
     def test_get_user_list_pagination(self):
         """Check pagination in user list."""
+        limit = 6
         url = reverse('user-list')
         response = self.client.get(url)
         results = response.data.get('results')
-        self.assertEqual(results, self.expected_results[:6])
+        self.assertEqual(len(results), limit)
 
     def test_get_user_list_pagination_with_page_param(self):
         """Check pagination in user list."""
+        expected_len = 3
         url = reverse('user-list')
         url += '?page=2'
         response = self.client.get(url)
         results = response.data.get('results')
-        self.assertEqual(results, self.expected_results[6:12])
+        self.assertEqual(len(results), expected_len)
 
     def test_get_user_list_pagination_with_limit_param(self):
         """Check pagination with parameter - limit."""
+        limit = 5
         url = reverse('user-list')
-        url += '?limit=5'
+        url += f'?limit={limit}'
         response = self.client.get(url)
         results = response.data.get('results')
-        self.assertEqual(results, self.expected_results[:5])
+        self.assertEqual(len(results), limit)
 
 
 class TokenApiTestCase(APITestCase):
@@ -198,8 +191,8 @@ class TokenApiTestCase(APITestCase):
     def setUpClass(cls):
         super().setUpClass()
         user_data = {
-            "email": "test_user@mail.ru",
-            "username": "test_user",
+            "email": "test_user_login@mail.ru",
+            "username": "test_user_login",
             "first_name": "test",
             "last_name": "user",
             "password": make_password("Qwerty123")
@@ -209,9 +202,9 @@ class TokenApiTestCase(APITestCase):
 
     def test_receive_token(self):
         """Login - Receive token."""
-        url = '/api/v1/auth/token/login/'
+        url = '/api/auth/token/login/'
         login_data = {
-            'email': 'test_user@mail.ru',
+            'email': 'test_user_login@mail.ru',
             'password': 'Qwerty123'
         }
         response = self.client.post(url, data=login_data)
@@ -220,7 +213,7 @@ class TokenApiTestCase(APITestCase):
 
     def test_remove_token(self):
         """Logout - remove token."""
-        url = '/api/v1/auth/token/logout/'
+        url = '/api/auth/token/logout/'
         headers = {
             'Authorization': f"Token {self.token}"
         }

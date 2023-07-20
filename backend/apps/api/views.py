@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Count, OuterRef, Prefetch, Subquery
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
@@ -7,11 +7,11 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .filters import RecipeFilterSet
-from .paginators import PageLimitPaginator
-from .permisstions import AuthorOrReadOnly
 from ..recipes import models
 from . import serializers, utils
+from .filters import RecipeFilterSet
+from .paginators import PageLimitPaginator
+from .permissions import AuthorOrReadOnly, NotBlockedUser
 
 User = get_user_model()
 ERRORS = {
@@ -29,7 +29,13 @@ ERRORS = {
     },
     'subscribe_on_yourself': {
         'errors': 'You can not subscribed on yourself.'
-    }
+    },
+    'recipe_in_shopping_cart': {
+        'errors': 'Recipe already in shopping cart.'
+    },
+    'recipe_not_in_shopping_cart': {
+        'errors': 'Recipe not in shopping cart.'
+    },
 }
 
 
@@ -40,7 +46,7 @@ class UserViewSet(
         viewsets.GenericViewSet):
     """View set for User."""
     queryset = User.objects.all().order_by('id')
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, NotBlockedUser]
     pagination_class = PageLimitPaginator
     serializer_class = serializers.UserSerializer
 
@@ -139,7 +145,7 @@ class TagsViewSet(
         viewsets.GenericViewSet):
     """ViewSet for tags."""
     queryset = models.Tag.objects.all()
-    permission_classes = []
+    permission_classes = [NotBlockedUser]
     serializer_class = serializers.TagSerializer
     pagination_class = None
 
@@ -150,7 +156,7 @@ class IngredientViewSet(
         viewsets.GenericViewSet):
     """ViewSet for ingredients."""
     queryset = models.Ingredient.objects.all()
-    permission_classes = []
+    permission_classes = [NotBlockedUser]
     serializer_class = serializers.IngredientSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
@@ -160,7 +166,7 @@ class IngredientViewSet(
 class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet for recipes."""
     queryset = models.Recipe.objects.all().order_by('id')
-    permission_classes = [AuthorOrReadOnly]
+    permission_classes = [AuthorOrReadOnly, NotBlockedUser]
     serializer_class = serializers.RecipeSerializer
     pagination_class = PageLimitPaginator
     filter_backends = [DjangoFilterBackend]
@@ -195,6 +201,43 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 errors = ERRORS.get('recipe_not_in_favorite')
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(methods=['get'], detail=False, url_path='download_shopping_cart')
+    def download_shopping_cart(self, request):
+        """Download list of ingredients from shopping cart."""
+        user = self.request.user
+        ingredients = models.Ingredient.objects.filter(
+            amounts__in_recipes__in_cart__user=user
+        ).values(
+            'name',
+            'measurement_unit',
+        ).annotate(total=Sum('amounts__amount')).order_by('-total')
+        response = utils.get_response_with_attachment(ingredients)
+        return response
+
+    @action(methods=['post', 'delete'], detail=True, url_path='shopping_cart')
+    def manage_shopping_cart(self, request, pk):
+        """Add or delete recipes in shopping cart."""
+        user = self.request.user
+        recipe = get_object_or_404(models.Recipe, id=pk)
+        cart = models.ShoppingCart.objects.filter(user=user, recipe=recipe)
+
+        if request.method == 'POST':
+            if cart.exists():
+                errors = ERRORS.get('recipe_in_shopping_cart')
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+            models.ShoppingCart.objects.create(user=user, recipe=recipe)
+            serializer = serializers.ShortRecipeSerializer(recipe)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        if request.method == 'DELETE':
+            if not cart.exists():
+                errors = ERRORS.get('recipe_not_in_shopping_cart')
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+            cart.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
