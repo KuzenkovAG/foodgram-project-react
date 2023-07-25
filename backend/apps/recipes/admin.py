@@ -12,7 +12,7 @@ class IngredientAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.IngredientAmount)
-class IngredientAdmin(admin.ModelAdmin):
+class IngredientAmountAdmin(admin.ModelAdmin):
     """Admin for IngredientAmount model."""
     list_display = ('id', 'ingredient', 'amount')
 
