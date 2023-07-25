@@ -11,6 +11,12 @@ class IngredientAdmin(admin.ModelAdmin):
     list_filter = ('name',)
 
 
+@admin.register(models.IngredientAmount)
+class IngredientAdmin(admin.ModelAdmin):
+    """Admin for IngredientAmount model."""
+    list_display = ('id', 'ingredient', 'amount')
+
+
 @admin.register(models.Tag)
 class TagAdmin(admin.ModelAdmin):
     """Admin for Tag model."""

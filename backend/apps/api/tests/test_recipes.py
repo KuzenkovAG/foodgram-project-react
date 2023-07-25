@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase, override_settings
 
+from .utils import delete_tags
 from ...recipes import models
 
 User = get_user_model()
@@ -84,6 +85,7 @@ class RecipeApiTestCase(APITestCase):
     def tearDownClass(cls):
         super().tearDownClass()
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        delete_tags()
 
     def test_get_recipe_list(self):
         """Get list of recipes."""
@@ -566,7 +568,7 @@ class RecipeSearchParamsApiTestCase(APITestCase):
         )
         cls.lunch_tag = models.Tag.objects.create(
             name='Обед',
-            color='#ffffff',
+            color='#000000',
             slug='lunch'
         )
 
@@ -607,6 +609,7 @@ class RecipeSearchParamsApiTestCase(APITestCase):
     def tearDownClass(cls):
         super().tearDownClass()
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        delete_tags()
 
     def test_is_favorited_search_param(self):
         """Check is_favorited search param."""

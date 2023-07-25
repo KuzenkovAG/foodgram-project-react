@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password, make_password
 from rest_framework import serializers
-from rest_framework.reverse import reverse
 from rest_framework.validators import ValidationError
 
 from ..recipes import models
@@ -9,10 +8,7 @@ from . import fields
 from .utils import create_ingredients
 
 User = get_user_model()
-SUBSCRIPTION_ACTIONS = [
-    'get_subscriptions',
-    'subscribe'
-]
+MAX_POSITIVE_VALUE = 32767
 
 
 class ShortRecipeSerializer(serializers.ModelSerializer):
@@ -22,19 +18,32 @@ class ShortRecipeSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'image', 'cooking_time')
 
 
-class UserSerializer(serializers.ModelSerializer):
-    """Serializer for view User."""
-    is_subscribed = serializers.SerializerMethodField()
-    recipes = ShortRecipeSerializer(many=True, read_only=True)
-    recipes_count = serializers.IntegerField(read_only=True)
-
+class UserCreateSerializer(serializers.ModelSerializer):
+    """Serializer for User creation."""
     class Meta:
         model = User
         fields = (
             'id', 'email', 'username', 'first_name', 'last_name', 'password',
-            'is_subscribed', 'recipes', 'recipes_count'
         )
-        read_only = ('id', 'is_subscribed', 'recipes_count')
+        read_only = ('id',)
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def validate_password(self, value):
+        """Make hash from password to save it in DB."""
+        return make_password(value)
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """Serializer for view User."""
+    is_subscribed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'email', 'username', 'first_name', 'last_name',
+            'is_subscribed'
+        )
+        read_only = ('id', 'is_subscribed')
         extra_kwargs = {'password': {'write_only': True}}
 
     def get_is_subscribed(self, author):
@@ -42,28 +51,24 @@ class UserSerializer(serializers.ModelSerializer):
         follows = self.context.get('follows')
         return author in follows
 
-    def validate_password(self, value):
-        """Make hash from password to save it in DB."""
-        return make_password(value)
 
-    def to_representation(self, instance):
-        """Remove additions field."""
-        self.__remove_field_is_subscribed()
-        self.__remove_fields_with_recipes()
-        return super().to_representation(instance)
+class UserSubscribeSerializer(serializers.ModelSerializer):
+    """Serializer for User subscribes"""
+    is_subscribed = serializers.SerializerMethodField()
+    recipes = ShortRecipeSerializer(many=True, read_only=True)
+    recipes_count = serializers.IntegerField(read_only=True)
 
-    def __remove_field_is_subscribed(self):
-        """Remove field is_subscribed for signup."""
-        request = self.context.get('request')
-        if request.method == 'POST' and request.path == reverse('user-list'):
-            self.fields.pop('is_subscribed')
+    class Meta:
+        model = User
+        fields = (
+            'id', 'email', 'username', 'first_name', 'last_name',
+            'is_subscribed', 'recipes', 'recipes_count'
+        )
 
-    def __remove_fields_with_recipes(self):
-        """Remove additions field related with Subscription action."""
-        action = self.context.get('view').action
-        if action not in SUBSCRIPTION_ACTIONS:
-            self.fields.pop('recipes', None)
-            self.fields.pop('recipes_count', None)
+    def get_is_subscribed(self, author):
+        """Check is user follow to author or not."""
+        follows = self.context.get('follows')
+        return author in follows
 
 
 class PasswordSerializer(serializers.Serializer):
@@ -84,7 +89,7 @@ class PasswordSerializer(serializers.Serializer):
     def save(self, **kwargs):
         user = self.instance
         new_password = self.validated_data.get('new_password')
-        user.password = make_password(new_password)
+        user.set_password(new_password)
         user.save()
 
 
@@ -93,9 +98,7 @@ class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Tag
         fields = ('id', 'name', 'color', 'slug')
-
-    def to_internal_value(self, data):
-        return data
+        read_only = ('name', 'color', 'slug')
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -106,18 +109,23 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientSerializer(serializers.Serializer):
-    """Serializer for ingredient."""
+    """Serializer for ingredient amount."""
     id = serializers.IntegerField()
     name = serializers.CharField(read_only=True)
     measurement_unit = serializers.CharField(read_only=True)
     amount = serializers.IntegerField()
 
     class Meta:
+        model = models.IngredientAmount
         fields = ('id', 'name', 'measurement_unit', 'amount')
 
     def validate_amount(self, amount):
         if int(amount) <= 0:
-            raise ValidationError('Amount should be not 0.')
+            raise ValidationError('Amount should more 0.')
+        elif int(amount) > MAX_POSITIVE_VALUE:
+            raise ValidationError(
+                f'Amount should be less {MAX_POSITIVE_VALUE}.'
+            )
         return int(amount)
 
     def to_representation(self, instance):
@@ -133,7 +141,6 @@ class RecipeIngredientSerializer(serializers.Serializer):
 class RecipeSerializer(serializers.ModelSerializer):
     """Serializer for ingredient."""
     author = UserSerializer(read_only=True)
-    tags = TagSerializer(many=True)
     ingredients = RecipeIngredientSerializer(many=True)
     image = fields.Base64ImageField()
     is_favorited = serializers.SerializerMethodField(read_only=True)
@@ -156,16 +163,22 @@ class RecipeSerializer(serializers.ModelSerializer):
         shoppings = self.context.get('shoppings')
         return recipe in shoppings
 
-    def validate_cooking_time(self, amount):
-        if int(amount) <= 0:
-            raise ValidationError('Amount should be not 0.')
-        return int(amount)
+    def validate_ingredients(self, ingredients):
+        if len(ingredients) == 0:
+            raise ValidationError('Ingredients should be not empty.')
+        ingredients_id = [
+            ingredient.get('id') for ingredient in ingredients
+        ]
+        existed_ingredients = models.Ingredient.objects.filter(
+            id__in=ingredients_id)
+        if len(existed_ingredients) != len(set(ingredients_id)):
+            raise ValidationError('Ingredient not found.')
+        return ingredients
 
-    def validate(self, attrs):
-        tags = attrs.get('tags')
-        if models.Tag.objects.filter(id__in=tags).count() != len(set(tags)):
-            raise ValidationError('Tag object not exists.')
-        return attrs
+    def to_representation(self, instance):
+        result = super().to_representation(instance)
+        result['tags'] = TagSerializer(instance.tags, many=True).data
+        return result
 
     def create(self, validated_data):
         tags = validated_data.pop('tags')
@@ -182,6 +195,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         ingredients_data = validated_data.pop('ingredients')
         instance = super().update(instance, validated_data)
         ingredients = create_ingredients(ingredients_data)
+        instance.ingredients.clear()
         instance.ingredients.set(ingredients)
         instance.tags.set(tags)
         return instance

@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Count, OuterRef, Prefetch, Subquery
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 from rest_framework import status
 
 from ..recipes import models
@@ -41,21 +40,13 @@ def add_favorites_to_context(context, user):
 
 def create_ingredients(ingredients):
     """Create ingredients amount objects for recipe."""
-    for ingredient in ingredients:
-        ingredient['ingredient'] = get_object_or_404(
-            models.Ingredient,
-            id=ingredient.get('id')
-        )
     ingredients_objects = [
         models.IngredientAmount(
-            ingredient=ingredient.get('ingredient'),
+            ingredient=models.Ingredient(id=ingredient.get('id')),
             amount=ingredient.get('amount')
         ) for ingredient in ingredients
     ]
-    ingredients_amount = models.IngredientAmount.objects.bulk_create(
-        ingredients_objects
-    )
-    return ingredients_amount
+    return models.IngredientAmount.objects.bulk_create(ingredients_objects)
 
 
 def get_query_with_recipes_and_recipes_limit(query, recipe_limit):
@@ -69,18 +60,15 @@ def get_query_with_recipes_and_recipes_limit(query, recipe_limit):
             author_id=OuterRef('author_id')
         ).values_list('id', flat=True)[:recipe_limit]
     )
-    query = query.prefetch_related(Prefetch(
-        'recipes',
-        queryset=models.Recipe.objects.filter(id__in=subquery)
-    )).annotate(recipes_count=Count("recipes"))
-    return query
+    return query.prefetch_related(Prefetch(
+        'recipes', queryset=models.Recipe.objects.filter(id__in=subquery))
+    ).annotate(recipes_count=Count("recipes"))
 
 
 def get_query_with_subscriptions(user, recipe_limit):
     """Get subscriptions of user with limited recipes."""
     query = User.objects.filter(followers__follower=user).order_by('-id')
-    query = get_query_with_recipes_and_recipes_limit(query, recipe_limit)
-    return query
+    return get_query_with_recipes_and_recipes_limit(query, recipe_limit)
 
 
 def _prepare_ingredients_to_print(ingredients):

@@ -6,6 +6,8 @@ services:
   db:
     image: postgres:13.10
     env_file: ../.env
+    ports:
+      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
 
@@ -15,7 +17,7 @@ services:
       dockerfile: Dockerfile
     env_file: ../.env
     volumes:
-      - ../backend/db.sqlite3:/app/db.sqlite3
+      - ../backend/.:/app/.
       - ../backend/media:/app/media
       - ../backend/static:/app/static
     depends_on:

@@ -11,32 +11,9 @@ from ..recipes import models
 from . import serializers, utils
 from .filters import RecipeFilterSet
 from .paginators import PageLimitPaginator
-from .permissions import AuthorOrReadOnly, NotBlockedUser
+from .permissions import AuthorOrReadOnly
 
 User = get_user_model()
-ERRORS = {
-    'recipe_in_favorite': {
-        'errors': 'Recipe already in favorite.'
-    },
-    'recipe_not_in_favorite': {
-        'errors': 'Recipe not in favorite.'
-    },
-    'user_subscribed': {
-        'errors': 'User already in subscribed.'
-    },
-    'user_not_subscribed': {
-        'errors': 'User not subscribed.'
-    },
-    'subscribe_on_yourself': {
-        'errors': 'You can not subscribed on yourself.'
-    },
-    'recipe_in_shopping_cart': {
-        'errors': 'Recipe already in shopping cart.'
-    },
-    'recipe_not_in_shopping_cart': {
-        'errors': 'Recipe not in shopping cart.'
-    },
-}
 
 
 class UserViewSet(
@@ -46,7 +23,7 @@ class UserViewSet(
         viewsets.GenericViewSet):
     """View set for User."""
     queryset = User.objects.all().order_by('id')
-    permission_classes = [IsAuthenticated, NotBlockedUser]
+    permission_classes = [IsAuthenticated]
     pagination_class = PageLimitPaginator
     serializer_class = serializers.UserSerializer
 
@@ -61,6 +38,15 @@ class UserViewSet(
         utils.add_follows_to_context(context, self.request.user)
         return context
 
+    def get_serializer_class(self):
+        if self.action in ['subscribe', 'get_subscriptions']:
+            return serializers.UserSubscribeSerializer
+        elif self.action == 'change_password':
+            return serializers.PasswordSerializer
+        elif self.request.method == 'POST':
+            return serializers.UserCreateSerializer
+        return serializers.UserSerializer
+
     def get_queryset(self):
         if self.action == 'get_subscriptions':
             recipe_limit = self.request.query_params.get('recipes_limit')
@@ -74,24 +60,19 @@ class UserViewSet(
     @action(methods=['get'], detail=False, url_path='me', url_name='me')
     def get_current_user(self, request):
         """Show information about current user."""
-        user = get_object_or_404(User, username=request.user.username)
-        serializer = self.get_serializer(user)
+        serializer = self.get_serializer(request.user)
         return Response(serializer.data)
 
     @action(methods=['post'], detail=False, url_path='set_password')
     def change_password(self, request):
         """Change password of user."""
-        serializer = serializers.PasswordSerializer(
+        serializer = self.get_serializer(
             data=request.data,
             instance=self.request.user
         )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                'Password changed.',
-                status=status.HTTP_201_CREATED
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response('Password changed.', status=status.HTTP_201_CREATED)
 
     @action(methods=['get'], detail=False, url_path='subscriptions')
     def get_subscriptions(self, request):
@@ -122,21 +103,20 @@ class UserViewSet(
         )
         if request.method == 'POST':
             if user == author:
-                errors = ERRORS.get('subscribe_on_yourself')
+                errors = 'You can not subscribed on yourself.'
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             if subscription.exists():
-                errors = ERRORS.get('user_subscribed')
+                errors = 'User already in subscribed.'
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             models.Follow.objects.create(follower=user, author=author)
             serializer = self.get_serializer(author)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         if request.method == 'DELETE':
             if not subscription.exists():
-                errors = ERRORS.get('user_not_subscribed')
+                errors = 'User not subscribed.'
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             subscription.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class TagsViewSet(
@@ -145,7 +125,7 @@ class TagsViewSet(
         viewsets.GenericViewSet):
     """ViewSet for tags."""
     queryset = models.Tag.objects.all()
-    permission_classes = [NotBlockedUser]
+    permission_classes = []
     serializer_class = serializers.TagSerializer
     pagination_class = None
 
@@ -156,7 +136,7 @@ class IngredientViewSet(
         viewsets.GenericViewSet):
     """ViewSet for ingredients."""
     queryset = models.Ingredient.objects.all()
-    permission_classes = [NotBlockedUser]
+    permission_classes = []
     serializer_class = serializers.IngredientSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
@@ -166,7 +146,7 @@ class IngredientViewSet(
 class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet for recipes."""
     queryset = models.Recipe.objects.all().order_by('id')
-    permission_classes = [AuthorOrReadOnly, NotBlockedUser]
+    permission_classes = [AuthorOrReadOnly]
     serializer_class = serializers.RecipeSerializer
     pagination_class = PageLimitPaginator
     filter_backends = [DjangoFilterBackend]
@@ -190,7 +170,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'POST':
             if favorite.exists():
-                errors = ERRORS.get('recipe_in_favorite')
+                errors = 'Recipe already in favorite.'
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             models.Favorite.objects.create(user=user, recipe=recipe)
             serializer = serializers.ShortRecipeSerializer(recipe)
@@ -198,12 +178,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'DELETE':
             if not favorite.exists():
-                errors = ERRORS.get('recipe_not_in_favorite')
+                errors = 'Recipe not in favorite.'
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             favorite.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(methods=['get'], detail=False, url_path='download_shopping_cart')
     def download_shopping_cart(self, request):
@@ -215,8 +193,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'name',
             'measurement_unit',
         ).annotate(total=Sum('amounts__amount')).order_by('-total')
-        response = utils.get_response_with_attachment(ingredients)
-        return response
+        return utils.get_response_with_attachment(ingredients)
 
     @action(methods=['post', 'delete'], detail=True, url_path='shopping_cart')
     def manage_shopping_cart(self, request, pk):
@@ -227,7 +204,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'POST':
             if cart.exists():
-                errors = ERRORS.get('recipe_in_shopping_cart')
+                errors = 'Recipe already in shopping cart.'
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             models.ShoppingCart.objects.create(user=user, recipe=recipe)
             serializer = serializers.ShortRecipeSerializer(recipe)
@@ -235,9 +212,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'DELETE':
             if not cart.exists():
-                errors = ERRORS.get('recipe_not_in_shopping_cart')
+                errors = 'Recipe not in shopping cart.'
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
             cart.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)

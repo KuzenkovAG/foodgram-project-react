@@ -17,10 +17,3 @@ class AuthorOrReadOnly(permissions.BasePermission):
             request.method in permissions.SAFE_METHODS
             or obj.author == request.user
         )
-
-
-class NotBlockedUser(permissions.BasePermission):
-    """Blocked user don't have permission."""
-    def has_permission(self, request, view):
-        user = request.user
-        return not user.is_authenticated or not user.is_blocked

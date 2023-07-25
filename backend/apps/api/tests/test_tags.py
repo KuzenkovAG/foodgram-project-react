@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from .utils import delete_tags
 from ...recipes import models
 
 User = get_user_model()
@@ -18,6 +19,11 @@ class TagsApiTestCase(APITestCase):
             'slug': 'breakfast'
         }
         cls.tag = models.Tag.objects.create(**tag_data)
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        delete_tags()
 
     def test_get_tag_list(self):
         """Get tags list."""
