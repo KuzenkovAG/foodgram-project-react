@@ -3,8 +3,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .utils import delete_tags
 from ...recipes import models
+from .utils import delete_tags
 
 User = get_user_model()
 

@@ -9,8 +9,8 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase, override_settings
 
-from .utils import delete_tags
 from ...recipes import models
+from .utils import delete_tags
 
 User = get_user_model()
 
