@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -12,6 +13,7 @@ from . import serializers, utils
 from .filters import RecipeFilterSet
 from .paginators import PageLimitPaginator
 from .permissions import AuthorOrReadOnly
+from .responses import get_response_for_create_or_delete
 
 User = get_user_model()
 
@@ -57,6 +59,11 @@ class UserViewSet(
             return query
         return self.queryset
 
+    def perform_create(self, serializer):
+        password = serializer.validated_data.get('password')
+        serializer.validated_data['password'] = make_password(password)
+        serializer.save()
+
     @action(methods=['get'], detail=False, url_path='me', url_name='me')
     def get_current_user(self, request):
         """Show information about current user."""
@@ -97,26 +104,21 @@ class UserViewSet(
             ),
             id=pk
         )
-        subscription = models.Follow.objects.filter(
-            follower=user,
-            author=author
+        if user == author:
+            errors = 'You can not subscribed on yourself.'
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        response = get_response_for_create_or_delete(
+            method=request.method,
+            obj=author,
+            relation_model=models.Follow,
+            action=self.action,
+            data={
+                'follower': user,
+                'author': author
+            },
+            serializer_class=self.get_serializer
         )
-        if request.method == 'POST':
-            if user == author:
-                errors = 'You can not subscribed on yourself.'
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-            if subscription.exists():
-                errors = 'User already in subscribed.'
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-            models.Follow.objects.create(follower=user, author=author)
-            serializer = self.get_serializer(author)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        if request.method == 'DELETE':
-            if not subscription.exists():
-                errors = 'User not subscribed.'
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-            subscription.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        return response
 
 
 class TagsViewSet(
@@ -164,24 +166,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(methods=['post', 'delete'], detail=True, url_path='favorite')
     def manage_favorites(self, request, pk):
         """Add or remove recipe to favorite."""
-        user = self.request.user
         recipe = get_object_or_404(models.Recipe, id=pk)
-        favorite = models.Favorite.objects.filter(user=user, recipe=recipe)
-
-        if request.method == 'POST':
-            if favorite.exists():
-                errors = 'Recipe already in favorite.'
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-            models.Favorite.objects.create(user=user, recipe=recipe)
-            serializer = serializers.ShortRecipeSerializer(recipe)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        if request.method == 'DELETE':
-            if not favorite.exists():
-                errors = 'Recipe not in favorite.'
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-            favorite.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        response = get_response_for_create_or_delete(
+            method=request.method,
+            obj=recipe,
+            relation_model=models.Favorite,
+            action=self.action,
+            data={
+                'user': self.request.user,
+                'recipe': recipe
+            },
+            serializer_class=serializers.ShortRecipeSerializer
+        )
+        return response
 
     @action(methods=['get'], detail=False, url_path='download_shopping_cart')
     def download_shopping_cart(self, request):
@@ -198,21 +195,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(methods=['post', 'delete'], detail=True, url_path='shopping_cart')
     def manage_shopping_cart(self, request, pk):
         """Add or delete recipes in shopping cart."""
-        user = self.request.user
         recipe = get_object_or_404(models.Recipe, id=pk)
-        cart = models.ShoppingCart.objects.filter(user=user, recipe=recipe)
-
-        if request.method == 'POST':
-            if cart.exists():
-                errors = 'Recipe already in shopping cart.'
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-            models.ShoppingCart.objects.create(user=user, recipe=recipe)
-            serializer = serializers.ShortRecipeSerializer(recipe)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        if request.method == 'DELETE':
-            if not cart.exists():
-                errors = 'Recipe not in shopping cart.'
-                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-            cart.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        response = get_response_for_create_or_delete(
+            method=request.method,
+            obj=recipe,
+            relation_model=models.ShoppingCart,
+            action=self.action,
+            data={
+                'user': self.request.user,
+                'recipe': recipe
+            },
+            serializer_class=serializers.ShortRecipeSerializer
+        )
+        return response

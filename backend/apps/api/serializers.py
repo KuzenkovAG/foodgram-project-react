@@ -28,10 +28,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
         read_only = ('id',)
         extra_kwargs = {'password': {'write_only': True}}
 
-    def validate_password(self, value):
-        """Make hash from password to save it in DB."""
-        return make_password(value)
-
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for view User."""

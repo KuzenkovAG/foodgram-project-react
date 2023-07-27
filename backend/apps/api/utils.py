@@ -40,12 +40,12 @@ def add_favorites_to_context(context, user):
 
 def create_ingredients(ingredients):
     """Create ingredients amount objects for recipe."""
-    ingredients_objects = [
+    ingredients_objects = (
         models.IngredientAmount(
             ingredient=models.Ingredient(id=ingredient.get('id')),
             amount=ingredient.get('amount')
         ) for ingredient in ingredients
-    ]
+    )
     return models.IngredientAmount.objects.bulk_create(ingredients_objects)
 
 

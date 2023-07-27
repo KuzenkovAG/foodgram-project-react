@@ -24,12 +24,35 @@ class TagAdmin(admin.ModelAdmin):
     list_filter = ('name',)
 
 
+class TagInline(admin.StackedInline):
+    """Inline for tags."""
+    model = models.Recipe.tags.through
+    extra = 1
+    min_num = 1
+    verbose_name = 'Тег'
+    verbose_name_plural = 'Теги'
+
+
+class IngredientAmountInline(admin.StackedInline):
+    """Inline for ingredient amount."""
+    model = models.Recipe.ingredients.through
+    extra = 1
+    min_num = 1
+    verbose_name = 'Количество ингредиентов'
+    verbose_name_plural = 'Количество ингредиентов'
+
+
 @admin.register(models.Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     """Admin for Recipe model."""
+    inlines = [
+        IngredientAmountInline,
+        TagInline
+    ]
     list_display = ('id', 'name', 'author')
     list_filter = ('author', 'name', 'tags')
     readonly_fields = ('in_favorites_count',)
+    exclude = ('ingredients', 'tags',)
 
     def in_favorites_count(self, obj):
         html_text = (
