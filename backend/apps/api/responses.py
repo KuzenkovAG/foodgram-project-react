@@ -8,13 +8,12 @@ from rest_framework.serializers import Serializer
 
 
 def get_response_for_create_or_delete(
-            method: str,
-            obj: Model,
-            relation_model: ModelBase,
-            action: str,
-            data: Dict,
-            serializer_class: Union[Callable, Serializer]
-        ) -> Response:
+        method: str,
+        obj: Model,
+        relation_model: ModelBase,
+        action: str,
+        data: Dict,
+        serializer_class: Union[Callable, Serializer]) -> Response:
     """Return response after create or delete relation."""
     relation = relation_model.objects.filter(**data)
     if method == 'POST':
