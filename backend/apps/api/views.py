@@ -13,7 +13,6 @@ from . import serializers, utils
 from .filters import RecipeFilterSet
 from .paginators import PageLimitPaginator
 from .permissions import AuthorOrReadOnly
-from .responses import get_response_for_create_or_delete
 
 User = get_user_model()
 
@@ -107,7 +106,7 @@ class UserViewSet(
         if user == author:
             errors = 'You can not subscribed on yourself.'
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-        response = get_response_for_create_or_delete(
+        return utils.get_response_for_create_or_delete(
             method=request.method,
             obj=author,
             relation_model=models.Follow,
@@ -118,7 +117,6 @@ class UserViewSet(
             },
             serializer_class=self.get_serializer
         )
-        return response
 
 
 class TagsViewSet(
@@ -147,7 +145,7 @@ class IngredientViewSet(
 
 class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet for recipes."""
-    queryset = models.Recipe.objects.all().order_by('id')
+    queryset = models.Recipe.objects.all()
     permission_classes = [AuthorOrReadOnly]
     serializer_class = serializers.RecipeSerializer
     pagination_class = PageLimitPaginator
@@ -167,7 +165,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def manage_favorites(self, request, pk):
         """Add or remove recipe to favorite."""
         recipe = get_object_or_404(models.Recipe, id=pk)
-        response = get_response_for_create_or_delete(
+        return utils.get_response_for_create_or_delete(
             method=request.method,
             obj=recipe,
             relation_model=models.Favorite,
@@ -178,7 +176,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             },
             serializer_class=serializers.ShortRecipeSerializer
         )
-        return response
 
     @action(methods=['get'], detail=False, url_path='download_shopping_cart')
     def download_shopping_cart(self, request):
@@ -196,7 +193,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def manage_shopping_cart(self, request, pk):
         """Add or delete recipes in shopping cart."""
         recipe = get_object_or_404(models.Recipe, id=pk)
-        response = get_response_for_create_or_delete(
+        return utils.get_response_for_create_or_delete(
             method=request.method,
             obj=recipe,
             relation_model=models.ShoppingCart,
@@ -207,4 +204,3 @@ class RecipeViewSet(viewsets.ModelViewSet):
             },
             serializer_class=serializers.ShortRecipeSerializer
         )
-        return response

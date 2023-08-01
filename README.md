@@ -1,6 +1,12 @@
 # Foodgram
 Сервис для рецептов
 
+### Деплой
+https://foodgram-alexeyk.ddns.net/
+
+username - admin
+password - admin
+
 
 ## Технологии
 #### Backend

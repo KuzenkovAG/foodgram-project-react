@@ -1,7 +1,8 @@
 version: '3.3'
 volumes:
   pg_data:
-  static:
+  frontend_static:
+  backend_static:
   media:
 
 services:
@@ -15,8 +16,8 @@ services:
     image: kuzenkov/foodgram_backend:latest
     env_file: .env
     volumes:
-      - static:/app/static
-      - media:/app/media
+      - backend_static:/backend_static
+      - media:/media
     depends_on:
       - db
 
@@ -25,7 +26,7 @@ services:
     env_file: .env
     command: cp -r /app/build/. /static/
     volumes:
-      - static:/static
+      - frontend_static:/static
 
   gateway:
     image: kuzenkov/foodgram_gateway:latest
@@ -33,5 +34,6 @@ services:
     ports:
       - "8000:80"
     volumes:
-      - static:/static
       - media:/media
+      - frontend_static:/usr/share/nginx/html/
+      - backend_static:/usr/share/nginx/html/static_backend

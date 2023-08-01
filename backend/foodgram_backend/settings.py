@@ -10,8 +10,19 @@ ALLOWED_HOSTS = [
     '0.0.0.0',
     'localhost',
     '127.0.0.1',
+    '84.201.152.243',
+    'foodgram-alexeyk.ddns.net',
+    'gateway',
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    'http://0.0.0.0',
+    'http://localhost',
+    'http://127.0.0.1',
+    'https://84.201.152.243',
+    'https://foodgram-alexeyk.ddns.net',
+    'http://gateway',
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -116,14 +127,16 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static_backend/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = '/static_backend/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
+if DEBUG:
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+else:
+    MEDIA_ROOT = '/media/'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
